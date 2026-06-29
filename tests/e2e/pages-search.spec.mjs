@@ -18,11 +18,14 @@ test.describe('Pages package search', () => {
     await expect(page.getByText('11 of 11 packages')).toBeVisible();
     await expect(page.getByText('44 package files')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'One-click repository setup' })).toBeVisible();
-    await expect(page.getByText(/curl -fsSL .*install\.sh \| sudo sh -s --/)).toBeVisible();
+    await expect(page.getByText(/curl -fsSL .*install\.sh \| sudo bash -s --/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Copy one-click setup command' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'apt InRelease' })).toHaveAttribute('href', 'apt/dists/stable/InRelease');
-    await expect(page.getByRole('link', { name: 'one-click setup script' })).toHaveAttribute('href', 'install.sh');
-    await expect(page.getByRole('link', { name: 'package catalog JSON' })).toHaveAttribute('href', 'packages.json');
+    const expectedAptInRelease = await page.evaluate(() => window.repoUrl('apt/dists/stable/InRelease'));
+    const expectedSetupScript = await page.evaluate(() => window.repoUrl('install.sh'));
+    const expectedCatalog = await page.evaluate(() => window.repoUrl('packages.json'));
+    await expect(page.getByRole('link', { name: 'apt InRelease' })).toHaveAttribute('href', expectedAptInRelease);
+    await expect(page.getByRole('link', { name: 'one-click setup script' })).toHaveAttribute('href', expectedSetupScript);
+    await expect(page.getByRole('link', { name: 'package catalog JSON' })).toHaveAttribute('href', expectedCatalog);
     await expect(page.getByRole('heading', { name: 'victoriametrics-vmagent' })).toBeVisible();
   });
 
@@ -30,6 +33,36 @@ test.describe('Pages package search', () => {
     await page.getByRole('button', { name: 'Copy one-click setup command' }).click();
 
     await expect(page.getByRole('status')).toHaveText('Copied repository setup command.');
+  });
+
+  test('normalizes GitHub Pages project URLs for setup commands', async ({ page }) => {
+    const urls = await page.evaluate(() => {
+      const canonicalBase = window.repoBaseFromLocation('https://artifactx-rs.github.io/repo');
+      return {
+        githubPagesBases: [
+          canonicalBase,
+          window.repoBaseFromLocation('https://artifactx-rs.github.io/repo/'),
+          window.repoBaseFromLocation('https://artifactx-rs.github.io/repo/index.html'),
+          window.repoBaseFromLocation('https://artifactx-rs.github.io/repo/packages.json'),
+        ],
+        currentBase: window.repoBase,
+        currentCatalog: window.repoUrl('packages.json'),
+        expectedCurrentCatalog: new URL('packages.json', window.repoBase).href,
+        canonicalSetupScript: new URL('install.sh', canonicalBase).href,
+        canonicalCatalog: new URL('packages.json', canonicalBase).href,
+      };
+    });
+
+    expect(urls.githubPagesBases).toEqual([
+      'https://artifactx-rs.github.io/repo/',
+      'https://artifactx-rs.github.io/repo/',
+      'https://artifactx-rs.github.io/repo/',
+      'https://artifactx-rs.github.io/repo/',
+    ]);
+    expect(urls.currentBase).toMatch(/\/$/);
+    expect(urls.currentCatalog).toBe(urls.expectedCurrentCatalog);
+    expect(urls.canonicalSetupScript).toBe('https://artifactx-rs.github.io/repo/install.sh');
+    expect(urls.canonicalCatalog).toBe('https://artifactx-rs.github.io/repo/packages.json');
   });
 
   test('filters the package-name list without per-package install commands', async ({ page }) => {

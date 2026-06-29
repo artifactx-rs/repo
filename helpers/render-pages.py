@@ -14,6 +14,7 @@ DEB_TO_RPM_ARCH = {
     "amd64": "x86_64",
     "arm64": "aarch64",
 }
+CANONICAL_REPO_BASE = "https://artifactx-rs.github.io/repo/"
 
 
 def parse_deb_packages(path: pathlib.Path) -> list[dict[str, str]]:
@@ -133,10 +134,10 @@ def build_catalog(public_root: pathlib.Path) -> dict[str, Any]:
     }
 
 
-INSTALL_SH = r'''#!/bin/sh
+INSTALL_SH_TEMPLATE = r'''#!/bin/sh
 set -eu
 
-REPO_BASE="${1:-${REPO_BASE:-https://artifactx-rs.github.io/repo}}"
+REPO_BASE="${1:-${REPO_BASE:-__CANONICAL_REPO_BASE__}}"
 REPO_BASE="${REPO_BASE%/}"
 
 die() {
@@ -159,7 +160,7 @@ fetch() {
 
 need_root() {
   if [ "$(id -u)" -ne 0 ]; then
-    die "run as root, for example: curl -fsSL ${REPO_BASE}/install.sh | sudo sh -s -- ${REPO_BASE}"
+    die "run as root, for example: curl -fsSL ${REPO_BASE}/install.sh | sudo bash -s -- ${REPO_BASE}"
   fi
 }
 
@@ -203,6 +204,7 @@ else
   die "no supported package manager found; expected apt-get, dnf, or yum"
 fi
 '''
+INSTALL_SH = INSTALL_SH_TEMPLATE.replace("__CANONICAL_REPO_BASE__", CANONICAL_REPO_BASE)
 
 
 HTML = r'''<!doctype html>
@@ -427,12 +429,12 @@ HTML = r'''<!doctype html>
         </div>
       </div>
       <nav class="quick-links" aria-label="Repository links">
-        <a href="apt/dists/stable/InRelease">apt InRelease</a>
-        <a href="yum/stable/x86_64/repodata/repomd.xml">yum x86_64 repomd.xml</a>
-        <a href="yum/stable/aarch64/repodata/repomd.xml">yum aarch64 repomd.xml</a>
-        <a href="keys/public.asc">repository public key</a>
-        <a href="install.sh">one-click setup script</a>
-        <a href="packages.json">package catalog JSON</a>
+        <a href="apt/dists/stable/InRelease" data-repo-path="apt/dists/stable/InRelease">apt InRelease</a>
+        <a href="yum/stable/x86_64/repodata/repomd.xml" data-repo-path="yum/stable/x86_64/repodata/repomd.xml">yum x86_64 repomd.xml</a>
+        <a href="yum/stable/aarch64/repodata/repomd.xml" data-repo-path="yum/stable/aarch64/repodata/repomd.xml">yum aarch64 repomd.xml</a>
+        <a href="keys/public.asc" data-repo-path="keys/public.asc">repository public key</a>
+        <a href="install.sh" data-repo-path="install.sh">one-click setup script</a>
+        <a href="packages.json" data-repo-path="packages.json">package catalog JSON</a>
       </nav>
     </section>
     <section id="results" aria-label="Package results"></section>
@@ -449,9 +451,31 @@ HTML = r'''<!doctype html>
       return String(value).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     }
 
+    function repoBaseFromLocation(href) {
+      const url = new URL(href);
+      let path = url.pathname;
+      if (path.endsWith('/')) return `${url.origin}${path}`;
+      if (path.endsWith('/index.html')) return `${url.origin}${path.slice(0, -'index.html'.length)}`;
+      if (path.split('/').pop().includes('.')) return `${url.origin}${path.slice(0, path.lastIndexOf('/') + 1)}`;
+      return `${url.origin}${path}/`;
+    }
+    window.repoBaseFromLocation = repoBaseFromLocation;
+    const repoBase = repoBaseFromLocation(window.location.href);
+    window.repoBase = repoBase;
+
+    function repoUrl(path) {
+      return new URL(path, repoBase).href;
+    }
+    window.repoUrl = repoUrl;
+
     function renderRepositoryCommands() {
-      const repoBase = new URL('.', window.location.href).href;
-      document.querySelector('#setup-command').textContent = `curl -fsSL ${repoBase}install.sh | sudo sh -s -- ${repoBase}`;
+      document.querySelector('#setup-command').textContent = `curl -fsSL ${repoBase}install.sh | sudo bash -s -- ${repoBase}`;
+    }
+
+    function renderRepositoryLinks() {
+      document.querySelectorAll('[data-repo-path]').forEach(link => {
+        link.href = repoUrl(link.dataset.repoPath);
+      });
     }
 
     function fallbackCopy(text) {
@@ -522,11 +546,12 @@ HTML = r'''<!doctype html>
     }
 
     renderRepositoryCommands();
+    renderRepositoryLinks();
     document.querySelectorAll('[data-copy-target]').forEach(button => {
       button.addEventListener('click', () => copyCommand(button));
     });
 
-    fetch('packages.json')
+    fetch(repoUrl('packages.json'))
       .then(response => {
         if (!response.ok) throw new Error(`catalog request failed: ${response.status}`);
         return response.json();

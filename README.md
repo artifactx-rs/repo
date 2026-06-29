@@ -103,8 +103,7 @@ repository only; then use your package manager to install any package name shown
 on the page.
 
 ```sh
-curl -fsSL https://artifactx-rs.github.io/repo/install.sh \
-  | sudo sh -s -- https://artifactx-rs.github.io/repo/
+curl -fsSL https://artifactx-rs.github.io/repo/install.sh | sudo bash -s -- https://artifactx-rs.github.io/repo/
 ```
 
 Package payload signing is intentionally out of scope for this feed; repository

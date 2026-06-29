@@ -36,6 +36,13 @@ done
 for path in "${required[@]}"; do
   test -f "$path"
 done
+install_script="$root/public/install.sh"
+sh -n "$install_script"
+bash -n "$install_script"
+grep -F "https://artifactx-rs.github.io/repo/" "$install_script" >/dev/null
+if command -v shellcheck >/dev/null 2>&1; then
+  shellcheck -x "$install_script"
+fi
 if [ -e "$root/public/keys/private.asc" ]; then
   printf 'private key leaked into public tree\n' >&2
   exit 1

@@ -38,11 +38,8 @@ for arch in $arch_list; do
     -e PACKAGES="$packages" -e BINARIES="$binaries" \
     -v "$root/public:/repo:ro" debian:bookworm-slim bash -euxo pipefail -c '
     apt-get update
-    apt-get install -y --no-install-recommends ca-certificates gpg
-    install -d -m 0755 /usr/share/keyrings
-    cp /repo/keys/public.asc /usr/share/keyrings/artifactx-packages.asc
-    printf "%s\n" "deb [signed-by=/usr/share/keyrings/artifactx-packages.asc] file:/repo/apt stable main" > /etc/apt/sources.list.d/artifactx-packages.list
-    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates curl gpg
+    curl -fsSL file:///repo/install.sh | bash -s -- file:///repo
     apt-get install -y --no-install-recommends $PACKAGES
     for bin in $BINARIES; do
       test -x "/usr/local/bin/$bin"
@@ -54,16 +51,7 @@ for arch in $arch_list; do
   docker run --rm --platform "$platform" \
     -e PACKAGES="$packages" -e BINARIES="$binaries" \
     -v "$root/public:/repo:ro" rockylinux:9 bash -euxo pipefail -c '
-    cat > /etc/yum.repos.d/artifactx-packages.repo <<"REPO"
-[artifactx-packages]
-name=ArtifactX Packages
-baseurl=file:///repo/yum/stable/$basearch
-enabled=1
-gpgcheck=0
-repo_gpgcheck=1
-gpgkey=file:///repo/keys/public.asc
-REPO
-    dnf -y makecache
+    curl -fsSL file:///repo/install.sh | bash -s -- file:///repo
     dnf -y install $PACKAGES
     for bin in $BINARIES; do
       test -x "/usr/local/bin/$bin"
