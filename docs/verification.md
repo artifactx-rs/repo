@@ -22,6 +22,9 @@ helpers/smoke-no-private-key-leak.sh
 # Fixed-version product test for all supported architectures.
 VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
 
+# CI path: run ArtifactX directly from GHCR instead of building from source.
+ARX_DOCKER_IMAGE=ghcr.io/artifactx-rs/arx:latest VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
+
 # Inspect generated artifact cardinality and generated Pages assets.
 find dist/victoriametrics -type f | wc -l
 helpers/smoke-repo-structure.sh

@@ -45,12 +45,6 @@ jobs:
       - name: Checkout package feed
         uses: actions/checkout@v4
 
-      - name: Checkout ArtifactX
-        uses: actions/checkout@v4
-        with:
-          repository: artifactx-rs/artifactx
-          path: artifactx
-
       - name: Set up QEMU for multi-arch install smoke
         if: ${{ inputs.install_smoke != false }}
         uses: docker/setup-qemu-action@v3
@@ -60,17 +54,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends rpm dpkg-dev ca-certificates curl
 
-      - name: Install Rust
+      - name: Verify ArtifactX container
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-
-      - name: Build ArtifactX
-        run: cargo build --manifest-path artifactx/Cargo.toml -p artifactx --release --locked
+          docker pull ghcr.io/artifactx-rs/arx:latest
+          docker run --rm ghcr.io/artifactx-rs/arx:latest --version
 
       - name: Build package feed
         env:
-          ARX_BIN: ${{ github.workspace }}/artifactx/target/release/arx
+          ARX_DOCKER_IMAGE: ghcr.io/artifactx-rs/arx:latest
           ARX_SIGNING_PRIVATE_ASC: ${{ secrets.ARX_SIGNING_PRIVATE_ASC }}
           ARX_SIGNING_PUBLIC_ASC: ${{ secrets.ARX_SIGNING_PUBLIC_ASC }}
         run: helpers/build-recipe.sh "$RECIPE"

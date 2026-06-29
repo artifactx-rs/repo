@@ -17,6 +17,35 @@ resolve_arx() {
     return 0
   fi
 
+  if [ -n "${ARX_DOCKER_IMAGE:-}" ]; then
+    if ! command -v docker >/dev/null 2>&1; then
+      printf 'docker is required when ARX_DOCKER_IMAGE is set.\n' >&2
+      exit 1
+    fi
+    local root wrapper user_group mount_spec workdir image tmpdir
+    root=$(repo_root)
+    image=$ARX_DOCKER_IMAGE
+    tmpdir="$root/work/arx-tmp"
+    mkdir -p "$root/work" "$tmpdir"
+    wrapper="$root/work/arx-docker"
+    user_group="$(id -u):$(id -g)"
+    mount_spec="$root:$root"
+    workdir=$root
+    {
+      printf '%s\n' '#!/usr/bin/env bash'
+      printf '%s\n' 'set -euo pipefail'
+      printf 'mkdir -p %q\n' "$tmpdir"
+      printf 'docker_args=(run --rm --user %q -v %q -w %q -e TMPDIR=%q -e TEMP=%q -e TMP=%q)\n' "$user_group" "$mount_spec" "$workdir" "$tmpdir" "$tmpdir" "$tmpdir"
+      printf '%s\n' "if [ -n \"\${ARX_DOCKER_PLATFORM:-}\" ]; then"
+      printf '%s\n' "  docker_args+=(--platform \"\$ARX_DOCKER_PLATFORM\")"
+      printf '%s\n' 'fi'
+      printf "exec docker \"\${docker_args[@]}\" %q \"\$@\"\n" "$image"
+    } > "$wrapper"
+    chmod 0755 "$wrapper"
+    printf '%s\n' "$wrapper"
+    return 0
+  fi
+
   local artifactx_dir="${ARTIFACTX_DIR:-}"
   if [ -z "$artifactx_dir" ] && [ -f /Users/joe/code/artifactx/Cargo.toml ]; then
     artifactx_dir=/Users/joe/code/artifactx
@@ -37,7 +66,7 @@ resolve_arx() {
     return 0
   fi
 
-  printf 'Cannot find arx. Set ARX_BIN or ARTIFACTX_DIR.\n' >&2
+  printf 'Cannot find arx. Set ARX_BIN, ARX_DOCKER_IMAGE, or ARTIFACTX_DIR.\n' >&2
   exit 1
 }
 

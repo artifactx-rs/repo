@@ -49,9 +49,10 @@ helpers/build-recipe.sh victoriametrics
 The helper resolves ArtifactX in this order:
 
 1. `ARX_BIN=/path/to/arx`
-2. `ARTIFACTX_DIR=/path/to/artifactx` (builds `target/debug/arx`)
-3. `/Users/joe/code/artifactx` when present
-4. `arx` on `PATH`
+2. `ARX_DOCKER_IMAGE=ghcr.io/artifactx-rs/arx:latest` (runs the container directly with this repo mounted)
+3. `ARTIFACTX_DIR=/path/to/artifactx` (builds `target/debug/arx`)
+4. `/Users/joe/code/artifactx` when present
+5. `arx` on `PATH`
 
 By default the helper builds both supported architectures (`amd64 arm64`). Use an explicit upstream version or the current GitHub release:
 
@@ -60,7 +61,12 @@ VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
 VERSION=latest helpers/build-recipe.sh victoriametrics
 ARCH=amd64 VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
 ARCHES="amd64 arm64" VERSION=latest helpers/build-recipe.sh victoriametrics
+ARX_DOCKER_IMAGE=ghcr.io/artifactx-rs/arx:latest VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
 ```
+
+When using `ARX_DOCKER_IMAGE` on an Apple Silicon or mixed-platform local Docker
+host, set `ARX_DOCKER_PLATFORM=linux/arm64` or `linux/amd64` only if Docker does
+not select the expected image variant automatically.
 
 Expected output for version `1.146.0`: 44 package files under
 `dist/victoriametrics/` (`11 packages × 2 arches × deb/rpm`). The logical package
