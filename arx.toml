@@ -1,0 +1,33 @@
+[signing]
+enabled = true
+encrypted = false
+keys_dir = "keys"
+private_key = "keys/private.asc"
+public_key = "keys/public.asc"
+user_id = "ArtifactX Packages Experimental Feed <packages@artifactx.local>"
+
+[server]
+addr = "127.0.0.1:8080"
+
+[apt]
+dist = "stable"
+component = "main"
+valid_days = 7
+strict = true
+pool_dir = "pool"
+
+[apt.release]
+origin = "ArtifactX Packages"
+label = "ArtifactX Packages"
+description = "Experimental ArtifactX-built package feed"
+suite = "stable"
+codename = "stable"
+
+[yum]
+repo = "stable"
+base_dir = "yum"
+
+[oidc]
+enabled = false
+audience = "arx"
+allowed_repos = []

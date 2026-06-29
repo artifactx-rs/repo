@@ -1,0 +1,16 @@
+# Generated package/repository outputs
+/dist/
+/repo/
+/public/
+/work/
+
+# Local logs and environment
+*.log
+.env
+.env.*
+!.env.example
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/

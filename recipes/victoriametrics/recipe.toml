@@ -1,0 +1,36 @@
+[package]
+name = "victoriametrics"
+version = "1.146.0"
+description = "VictoriaMetrics single-node community edition"
+license = "Apache-2.0"
+maintainer = "ArtifactX Packages <packages@artifactx.local>"
+section = "database"
+group = "Applications/Databases"
+
+[upstream]
+owner = "@artifactx-rs/packagers"
+project = "VictoriaMetrics/VictoriaMetrics"
+homepage = "https://victoriametrics.com/"
+release_api = "https://api.github.com/repos/VictoriaMetrics/VictoriaMetrics/releases"
+official_docs = "https://docs.victoriametrics.com/victoriametrics/quick-start/"
+source_kind = "checksummed-archive"
+version_source = "GitHub release API; recipe pins a baseline and CI may override VERSION=latest"
+variant = "community-single-node"
+asset_pattern = "victoria-metrics-linux-{arch}-v{version}.tar.gz"
+checksum_pattern = "victoria-metrics-linux-{arch}-v{version}_checksums.txt"
+
+[outputs]
+packages = ["victoriametrics"]
+arches = ["amd64"]
+rpm_arches = ["x86_64"]
+distros = ["apt", "dnf"]
+dependencies = []
+config_paths = []
+smoke_tests = [
+  "victoria-metrics-prod --version",
+  "test -f /usr/lib/systemd/system/victoriametrics.service",
+]
+
+[refresh]
+cadence = "scheduled CI plus workflow_dispatch"
+rollback = "client install smoke fails, service unit missing, or upstream checksum verification fails"
