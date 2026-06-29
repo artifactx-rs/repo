@@ -1,0 +1,12 @@
+package	binary	archive	description	service
+victoriametrics	victoria-metrics-prod	single	VictoriaMetrics single-node community edition	yes
+victoriametrics-vmagent	vmagent-prod	vmutils	VictoriaMetrics metrics collection agent	no
+victoriametrics-vmalert	vmalert-prod	vmutils	VictoriaMetrics alerting and recording rule evaluator	no
+victoriametrics-vmauth	vmauth-prod	vmutils	VictoriaMetrics auth proxy and request router	no
+victoriametrics-vmctl	vmctl-prod	vmutils	VictoriaMetrics data migration command-line tool	no
+victoriametrics-vmbackup	vmbackup-prod	vmutils	VictoriaMetrics backup command-line tool	no
+victoriametrics-vmrestore	vmrestore-prod	vmutils	VictoriaMetrics restore command-line tool	no
+victoriametrics-vmalert-tool	vmalert-tool-prod	vmutils	VictoriaMetrics alerting rule validation tool	no
+victoriametrics-vminsert	vminsert-prod	cluster	VictoriaMetrics cluster ingestion frontend	no
+victoriametrics-vmselect	vmselect-prod	cluster	VictoriaMetrics cluster query frontend	no
+victoriametrics-vmstorage	vmstorage-prod	cluster	VictoriaMetrics cluster storage backend	no

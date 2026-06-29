@@ -1,8 +1,8 @@
-name = "victoriametrics"
+name = "@PACKAGE_NAME@"
 version = "@VERSION@"
 arch = "@ARCH@"
 maintainer = "ArtifactX Packages <packages@artifactx.local>"
-description = "VictoriaMetrics single-node community edition"
+description = "@DESCRIPTION@"
 license = "Apache-2.0"
 section = "database"
 group = "Applications/Databases"
@@ -11,14 +11,7 @@ config_files = []
 
 [[files]]
 source = "@BINARY_PATH@"
-dest = "/usr/local/bin/victoria-metrics-prod"
+dest = "/usr/local/bin/@BINARY_NAME@"
 mode = "0755"
-
-[[files]]
-source = "@SERVICE_PATH@"
-dest = "/usr/lib/systemd/system/victoriametrics.service"
-mode = "0644"
-
-[scripts]
-postinst = "@POSTINST_PATH@"
-postrm = "@POSTRM_PATH@"
+@SERVICE_FILE_ENTRY@
+@SCRIPTS_TABLE@

@@ -4,4 +4,5 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd -- "$script_dir/../../.." && pwd)
 version=${1:?version required}
 arch=${2:-amd64}
-"$root/helpers/smoke-package-structure.sh" victoriametrics "$version" "$arch"
+package=${3:-victoriametrics}
+"$root/helpers/smoke-package-structure.sh" victoriametrics "$version" "$arch" "$package"

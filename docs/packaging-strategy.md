@@ -49,13 +49,13 @@ matrix and Docker install smoke are expanded first.
    on `victoriametrics-vminsert`, `victoriametrics-vmselect`, and
    `victoriametrics-vmstorage`; do not duplicate binaries.
 
-## VictoriaMetrics phase plan
+## VictoriaMetrics implemented split
 
 | Phase | Upstream input | Packages | Reason |
 | --- | --- | --- | --- |
-| 1 | `victoria-metrics-linux-{arch}-v*.tar.gz` | `victoriametrics` | Already smoke-tested as the smallest single-node server package. |
-| 2 | `vmutils-linux-{arch}-v*.tar.gz` | `victoriametrics-vmagent`, `victoriametrics-vmalert`, `victoriametrics-vmauth`, `victoriametrics-vmctl`, `victoriametrics-vmbackup`, `victoriametrics-vmrestore`, `victoriametrics-vmalert-tool` | Mirrors official per-component Docker images and avoids a 100+ MiB all-tools package. |
-| 3 | `victoria-metrics-linux-{arch}-v*-cluster.tar.gz` | `victoriametrics-vminsert`, `victoriametrics-vmselect`, `victoriametrics-vmstorage` | Mirrors official cluster images and lets operators install only the roles they run. |
+| Implemented | `victoria-metrics-linux-{arch}-v*.tar.gz` | `victoriametrics` | Smallest single-node server package. |
+| Implemented | `vmutils-linux-{arch}-v*.tar.gz` | `victoriametrics-vmagent`, `victoriametrics-vmalert`, `victoriametrics-vmauth`, `victoriametrics-vmctl`, `victoriametrics-vmbackup`, `victoriametrics-vmrestore`, `victoriametrics-vmalert-tool` | Mirrors official per-component Docker images and avoids a 100+ MiB all-tools package. |
+| Implemented | `victoria-metrics-linux-{arch}-v*-cluster.tar.gz` | `victoriametrics-vminsert`, `victoriametrics-vmselect`, `victoriametrics-vmstorage` | Mirrors official cluster images and lets operators install only the roles they run. |
 | Later | VictoriaLogs / VictoriaTraces assets | Separate recipes | Different product families; do not mix with metrics packages. |
 
 ## Current upstream evidence for v1.146.0

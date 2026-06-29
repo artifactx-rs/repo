@@ -7,7 +7,8 @@ recipes fetch official upstream release assets, render ArtifactX pack manifests,
 build `.deb` and `.rpm` packages, then publish a static apt/yum repository under
 `public/`.
 
-The first recipe is VictoriaMetrics single-node community edition.
+The first recipe is VictoriaMetrics community edition, split by official Docker
+component boundary.
 
 ## Repository contract
 
@@ -20,9 +21,10 @@ artifactx-packages/
   recipes/
     victoriametrics/
       recipe.toml           # owner, source, outputs, matrix, refresh policy
+      components.tsv        # package -> binary -> upstream archive mapping
       arx-pack.toml.in      # ArtifactX package manifest template
       fetch.sh              # official upstream download + checksum verification
-      render-manifest.sh    # renders work/.../arx-pack.toml
+      render-manifest.sh    # renders one work/.../manifest per component package
       systemd/              # official service fallback only
       scripts/              # packaging glue derived from official install prerequisites
       smoke/                # recipe-level checks
@@ -60,12 +62,21 @@ ARCH=amd64 VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
 ARCHES="amd64 arm64" VERSION=latest helpers/build-recipe.sh victoriametrics
 ```
 
-Expected package names for version `1.146.0`:
+Expected output for version `1.146.0`: 44 package files under
+`dist/victoriametrics/` (`11 packages × 2 arches × deb/rpm`). The logical package
+names are:
 
-- `dist/victoriametrics/victoriametrics_1.146.0_amd64.deb`
-- `dist/victoriametrics/victoriametrics_1.146.0_arm64.deb`
-- `dist/victoriametrics/victoriametrics-1.146.0-1.x86_64.rpm`
-- `dist/victoriametrics/victoriametrics-1.146.0-1.aarch64.rpm`
+- `victoriametrics`
+- `victoriametrics-vmagent`
+- `victoriametrics-vmalert`
+- `victoriametrics-vmauth`
+- `victoriametrics-vmctl`
+- `victoriametrics-vmbackup`
+- `victoriametrics-vmrestore`
+- `victoriametrics-vmalert-tool`
+- `victoriametrics-vminsert`
+- `victoriametrics-vmselect`
+- `victoriametrics-vmstorage`
 
 Expected static repository paths:
 
@@ -85,11 +96,12 @@ Replace the base URL with the static host that serves `public/`.
 ```sh
 curl -fsSL https://packages.example.invalid/keys/public.asc \
   | sudo tee /usr/share/keyrings/artifactx-packages.asc >/dev/null
-printf '%s\n' \
+printf '%s
+' \
   'deb [signed-by=/usr/share/keyrings/artifactx-packages.asc] https://packages.example.invalid/apt stable main' \
   | sudo tee /etc/apt/sources.list.d/artifactx-packages.list
 sudo apt-get update
-sudo apt-get install victoriametrics
+sudo apt-get install victoriametrics victoriametrics-vmagent
 ```
 
 ### dnf/yum
@@ -107,10 +119,10 @@ gpgkey=https://packages.example.invalid/keys/public.asc
 Then:
 
 ```sh
-sudo dnf install victoriametrics
+sudo dnf install victoriametrics victoriametrics-vmagent
 ```
 
-Package payload signing is intentionally out of scope for phase one; repository
+Package payload signing is intentionally out of scope for this feed; repository
 metadata is signed by ArtifactX.
 
 ## Package split policy
@@ -124,15 +136,16 @@ platforms. See `docs/packaging-strategy.md`.
 
 VictoriaMetrics inputs come from official sources only:
 
-- release asset and checksum from `VictoriaMetrics/VictoriaMetrics` GitHub releases;
-- `victoria-metrics-prod` binary from that release archive;
-- `victoriametrics.service` from the release archive when present, otherwise the
-  official quick-start service unit kept as an exact fallback copy;
-- no local config file is invented for the single-node package because upstream's
-  documented install uses service flags rather than a standalone config file.
+- release assets and checksums from `VictoriaMetrics/VictoriaMetrics` GitHub releases;
+- component binaries from those release archives;
+- `victoriametrics.service` from the single-node release archive when present,
+  otherwise the official quick-start service unit kept as a fallback copy;
+- no local config file is invented because upstream's documented install uses
+  service flags rather than a standalone config file.
 
-Maintainer scripts only create the official runtime user/group/data directory and
-reload systemd when present. They do not alter the upstream service flags.
+Maintainer scripts are attached only to the `victoriametrics` service package:
+they create the official runtime user/group/data directory and reload systemd
+when present. Component tool packages install only their binary payloads.
 
 ## CI refresh
 
@@ -151,7 +164,7 @@ product tests but not for long-lived clients.
 ## Add another package
 
 1. Copy `recipes/victoriametrics/` to a new recipe directory.
-2. Update `recipe.toml`, `fetch.sh`, and `arx-pack.toml.in`.
+2. Update `recipe.toml`, `components.tsv`, `fetch.sh`, and `arx-pack.toml.in`.
 3. Keep package-specific service/config files inside that recipe.
 4. Reuse `helpers/build-recipe.sh <recipe>` and add recipe-specific smoke checks.
 5. Do not commit `dist/`, `repo/`, `public/`, `work/`, or private keys.

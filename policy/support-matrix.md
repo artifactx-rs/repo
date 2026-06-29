@@ -1,10 +1,11 @@
 # Support matrix
 
-Phase one is intentionally narrow.
+The feed is intentionally narrow: VictoriaMetrics community assets only,
+official component boundaries only, and only the two hot Linux architectures.
 
-| Recipe | Upstream variant | Package name | Arch | deb | rpm | Install smoke |
+| Recipe | Upstream variant | Package names | Arch | deb | rpm | Install smoke |
 | --- | --- | --- | --- | --- | --- | --- |
-| `victoriametrics` | community single-node | `victoriametrics` | `amd64` / `arm64` | Debian/Ubuntu family | RHEL/Fedora family | Docker apt + dnf smoke helper for `linux/amd64` and `linux/arm64` |
+| `victoriametrics` | community components | 11 packages from `recipes/victoriametrics/components.tsv` | `amd64` / `arm64` | Debian/Ubuntu family | RHEL/Fedora family | Docker apt + dnf smoke helper for `linux/amd64` and `linux/arm64` |
 
 Rules:
 
@@ -15,6 +16,6 @@ Rules:
 - Keep one yum repo (`stable`) and one apt suite/component (`stable main`) until
   a concrete lifecycle need appears.
 - Follow official Docker image/component boundaries for package splits; do not
-  publish a giant `vmutils` package.
+  publish a giant `vmutils` package or giant cluster package.
 - Recipe names and package names must be lowercase and conform to both Debian and
   RPM naming expectations.

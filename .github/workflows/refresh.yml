@@ -25,8 +25,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 env:
   RECIPE: ${{ inputs.recipe || 'victoriametrics' }}
@@ -40,6 +38,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: package-signing
+    permissions:
+      contents: read
     steps:
       - name: Checkout package feed
         uses: actions/checkout@v4
@@ -74,6 +75,9 @@ jobs:
           ARX_SIGNING_PUBLIC_ASC: ${{ secrets.ARX_SIGNING_PUBLIC_ASC }}
         run: helpers/build-recipe.sh "$RECIPE"
 
+      - name: Guard against signing key leakage
+        run: helpers/smoke-no-private-key-leak.sh
+
       - name: Docker install smoke
         if: ${{ inputs.install_smoke != false }}
         run: helpers/smoke-install-docker.sh "$RECIPE"
@@ -98,7 +102,7 @@ jobs:
           name: package-provenance-${{ env.RECIPE }}
           path: |
             work/${{ env.RECIPE }}/*/*/provenance.txt
-            work/${{ env.RECIPE }}/*/*/archive-contents.txt
+            work/${{ env.RECIPE }}/*/*/archive-*-contents.txt
           if-no-files-found: error
 
       - name: Upload Pages artifact
@@ -110,6 +114,9 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

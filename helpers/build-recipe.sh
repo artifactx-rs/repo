@@ -38,14 +38,18 @@ for arch in $arch_list; do
   . "$root/work/$recipe/current.env"
   built_version=$VERSION
 
-  "$arx" pack "$MANIFEST_PATH" --out "$root/dist/$recipe" --deb --rpm --source-date "${SOURCE_DATE_EPOCH:-0}"
-  "$script_dir/smoke-package-structure.sh" "$recipe" "$VERSION" "$arch"
+  while IFS=$'\t' read -r package manifest_path; do
+    [ -n "$package" ] || continue
+    "$arx" pack "$manifest_path" --out "$root/dist/$recipe" --deb --rpm --source-date "${SOURCE_DATE_EPOCH:-0}"
+    "$script_dir/smoke-package-structure.sh" "$recipe" "$VERSION" "$arch" "$package"
+  done < "$MANIFESTS_FILE"
 done
 
 ensure_repo_root "$root" "$arx"
 "$arx" add "$root/dist/$recipe" --root "$root/repo"
 "$arx" publish --root "$root/repo" --strict --full
 export_public_tree "$root"
+"$script_dir/smoke-no-private-key-leak.sh"
 ARCHES="$arch_list" "$script_dir/smoke-repo-structure.sh"
 
 printf '\nBuilt package feed for %s %s (%s)\n' "$recipe" "$built_version" "$arch_list"
