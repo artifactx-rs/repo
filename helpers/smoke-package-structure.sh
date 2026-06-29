@@ -7,12 +7,19 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 root=$(repo_root)
 recipe=${1:?recipe required}
 version=${2:?version required}
+arch=${3:-amd64}
+case "$arch" in
+  amd64) deb_arch=amd64; rpm_arch=x86_64 ;;
+  arm64) deb_arch=arm64; rpm_arch=aarch64 ;;
+  *)
+    printf 'unsupported arch for smoke: %s\n' "$arch" >&2
+    exit 1
+    ;;
+esac
 
 case "$recipe" in
   victoriametrics)
     pkg=victoriametrics
-    deb_arch=amd64
-    rpm_arch=x86_64
     files=(/usr/local/bin/victoria-metrics-prod /usr/lib/systemd/system/victoriametrics.service)
     ;;
   *)
@@ -56,4 +63,4 @@ for path in "${files[@]}"; do
   rpm -qlp "$rpm" | grep -Fx -- "$path" >/dev/null
 done
 
-printf 'Package structure smoke passed for %s %s\n' "$pkg" "$version"
+printf 'Package structure smoke passed for %s %s (%s)\n' "$pkg" "$version" "$arch"

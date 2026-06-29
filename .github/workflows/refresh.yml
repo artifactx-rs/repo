@@ -11,6 +11,10 @@ on:
         description: Upstream version without leading v, or latest
         required: true
         default: latest
+      arch:
+        description: "Space-separated arch list: amd64, arm64, or both"
+        required: true
+        default: "amd64 arm64"
       install_smoke:
         description: Run Docker apt/dnf install smoke
         required: true
@@ -27,6 +31,7 @@ permissions:
 env:
   RECIPE: ${{ inputs.recipe || 'victoriametrics' }}
   VERSION: ${{ inputs.version || 'latest' }}
+  ARCHES: ${{ inputs.arch || 'amd64 arm64' }}
 
 concurrency:
   group: package-feed-${{ github.ref }}
@@ -44,6 +49,10 @@ jobs:
         with:
           repository: artifactx-rs/artifactx
           path: artifactx
+
+      - name: Set up QEMU for multi-arch install smoke
+        if: ${{ inputs.install_smoke != false }}
+        uses: docker/setup-qemu-action@v3
 
       - name: Install system tools
         run: |
@@ -88,8 +97,8 @@ jobs:
         with:
           name: package-provenance-${{ env.RECIPE }}
           path: |
-            work/${{ env.RECIPE }}/*/provenance.txt
-            work/${{ env.RECIPE }}/*/archive-contents.txt
+            work/${{ env.RECIPE }}/*/*/provenance.txt
+            work/${{ env.RECIPE }}/*/*/archive-contents.txt
           if-no-files-found: error
 
       - name: Upload Pages artifact

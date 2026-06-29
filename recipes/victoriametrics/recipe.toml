@@ -14,15 +14,15 @@ homepage = "https://victoriametrics.com/"
 release_api = "https://api.github.com/repos/VictoriaMetrics/VictoriaMetrics/releases"
 official_docs = "https://docs.victoriametrics.com/victoriametrics/quick-start/"
 source_kind = "checksummed-archive"
-version_source = "GitHub release API; recipe pins a baseline and CI may override VERSION=latest"
+version_source = "recipe pins a baseline; CI may override VERSION=latest via GitHub releases/latest redirect"
 variant = "community-single-node"
 asset_pattern = "victoria-metrics-linux-{arch}-v{version}.tar.gz"
 checksum_pattern = "victoria-metrics-linux-{arch}-v{version}_checksums.txt"
 
 [outputs]
 packages = ["victoriametrics"]
-arches = ["amd64"]
-rpm_arches = ["x86_64"]
+arches = ["amd64", "arm64"]
+rpm_arches = ["x86_64", "aarch64"]
 distros = ["apt", "dnf"]
 dependencies = []
 config_paths = []

@@ -1,6 +1,6 @@
 name = "victoriametrics"
 version = "@VERSION@"
-arch = "amd64"
+arch = "@ARCH@"
 maintainer = "ArtifactX Packages <packages@artifactx.local>"
 description = "VictoriaMetrics single-node community edition"
 license = "Apache-2.0"

@@ -18,21 +18,34 @@ fi
 
 test -d "$root/public"
 
-docker run --rm --platform linux/amd64 -v "$root/public:/repo:ro" debian:bookworm-slim bash -euxo pipefail -c '
-  apt-get update
-  apt-get install -y --no-install-recommends ca-certificates gpg
-  install -d -m 0755 /usr/share/keyrings
-  cp /repo/keys/public.asc /usr/share/keyrings/artifactx-packages.asc
-  printf "%s\n" "deb [signed-by=/usr/share/keyrings/artifactx-packages.asc] file:/repo/apt stable main" > /etc/apt/sources.list.d/artifactx-packages.list
-  apt-get update
-  apt-get install -y --no-install-recommends victoriametrics
-  test -x /usr/local/bin/victoria-metrics-prod
-  /usr/local/bin/victoria-metrics-prod --version
-  test -f /usr/lib/systemd/system/victoriametrics.service
-'
+if [ -n "${ARCH:-}" ]; then
+  arch_list="$ARCH"
+else
+  arch_list="${ARCHES:-amd64 arm64}"
+fi
 
-docker run --rm --platform linux/amd64 -v "$root/public:/repo:ro" rockylinux:9 bash -euxo pipefail -c '
-  cat > /etc/yum.repos.d/artifactx-packages.repo <<"REPO"
+for arch in $arch_list; do
+  case "$arch" in
+    amd64) platform=linux/amd64 ;;
+    arm64) platform=linux/arm64 ;;
+    *) printf 'unsupported ARCH=%s; supported: amd64 arm64\n' "$arch" >&2; exit 1 ;;
+  esac
+
+  docker run --rm --platform "$platform" -v "$root/public:/repo:ro" debian:bookworm-slim bash -euxo pipefail -c '
+    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates gpg
+    install -d -m 0755 /usr/share/keyrings
+    cp /repo/keys/public.asc /usr/share/keyrings/artifactx-packages.asc
+    printf "%s\n" "deb [signed-by=/usr/share/keyrings/artifactx-packages.asc] file:/repo/apt stable main" > /etc/apt/sources.list.d/artifactx-packages.list
+    apt-get update
+    apt-get install -y --no-install-recommends victoriametrics
+    test -x /usr/local/bin/victoria-metrics-prod
+    /usr/local/bin/victoria-metrics-prod --version
+    test -f /usr/lib/systemd/system/victoriametrics.service
+  '
+
+  docker run --rm --platform "$platform" -v "$root/public:/repo:ro" rockylinux:9 bash -euxo pipefail -c '
+    cat > /etc/yum.repos.d/artifactx-packages.repo <<"REPO"
 [artifactx-packages]
 name=ArtifactX Packages
 baseurl=file:///repo/yum/stable/$basearch
@@ -41,11 +54,12 @@ gpgcheck=0
 repo_gpgcheck=1
 gpgkey=file:///repo/keys/public.asc
 REPO
-  dnf -y makecache
-  dnf -y install victoriametrics
-  test -x /usr/local/bin/victoria-metrics-prod
-  /usr/local/bin/victoria-metrics-prod --version
-  test -f /usr/lib/systemd/system/victoriametrics.service
-'
+    dnf -y makecache
+    dnf -y install victoriametrics
+    test -x /usr/local/bin/victoria-metrics-prod
+    /usr/local/bin/victoria-metrics-prod --version
+    test -f /usr/lib/systemd/system/victoriametrics.service
+  '
+done
 
-printf 'Docker install smoke passed for %s\n' "$recipe"
+printf 'Docker install smoke passed for %s (%s)\n' "$recipe" "$arch_list"

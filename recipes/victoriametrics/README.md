@@ -1,7 +1,7 @@
 # VictoriaMetrics recipe
 
-Packages VictoriaMetrics community single-node release assets into a Debian and
-RPM package named `victoriametrics`.
+Packages VictoriaMetrics community single-node release assets into Debian and
+RPM packages named `victoriametrics` for `amd64` and `arm64` only.
 
 Official upstream inputs:
 
@@ -15,3 +15,5 @@ No config file is packaged for phase one because the official single-node
 quick-start documents command-line flags in the systemd service, not a separate
 first-party config file. If upstream adds a config file, add it under this recipe
 and list the installed path in `config_files`.
+
+Future VictoriaMetrics components must be separate packages following `docs/packaging-strategy.md`; do not bundle the `vmutils` or cluster archives into one package.

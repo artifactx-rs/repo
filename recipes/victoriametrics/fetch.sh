@@ -6,6 +6,17 @@ root=$(cd -- "$script_dir/../.." && pwd)
 recipe_file="$script_dir/recipe.toml"
 recipe_name=victoriametrics
 arch=${ARCH:-amd64}
+case "$arch" in
+  amd64|arm64) ;;
+  *)
+    printf 'unsupported ARCH=%s; supported: amd64 arm64\n' "$arch" >&2
+    exit 1
+    ;;
+esac
+case "$arch" in
+  amd64) rpm_arch=x86_64 ;;
+  arm64) rpm_arch=aarch64 ;;
+esac
 version=${VERSION:-}
 if [ -z "$version" ]; then
   version=$(python3 - <<'PY' "$recipe_file"
@@ -17,21 +28,18 @@ PY
 )
 fi
 if [ "$version" = latest ]; then
-  version=$(python3 - <<'PY'
-import json, urllib.request
-url = 'https://api.github.com/repos/VictoriaMetrics/VictoriaMetrics/releases/latest'
-with urllib.request.urlopen(url, timeout=30) as r:
-    data = json.load(r)
-print(str(data['tag_name']).removeprefix('v'))
-PY
-)
+  latest_url=$(
+    curl -fsSLI -o /dev/null -w '%{url_effective}' \
+      'https://github.com/VictoriaMetrics/VictoriaMetrics/releases/latest'
+  )
+  version=${latest_url##*/}
 fi
 version=${version#v}
 
 archive="victoria-metrics-linux-${arch}-v${version}.tar.gz"
 checksums="victoria-metrics-linux-${arch}-v${version}_checksums.txt"
 base_url="https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v${version}"
-work_dir="$root/work/$recipe_name/$version"
+work_dir="$root/work/$recipe_name/$version/$arch"
 download_dir="$work_dir/downloads"
 extract_dir="$work_dir/extract"
 stage_dir="$work_dir/stage"
@@ -98,6 +106,9 @@ EOF2
 
 cat > "$root/work/$recipe_name/current.env" <<EOF2
 VERSION=$version
+ARCH=$arch
+DEB_ARCH=$arch
+RPM_ARCH=$rpm_arch
 WORK_DIR=$work_dir
 STAGE_DIR=$stage_dir
 BINARY_PATH=$stage_dir/usr/local/bin/victoria-metrics-prod

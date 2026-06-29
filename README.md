@@ -51,23 +51,29 @@ The helper resolves ArtifactX in this order:
 3. `/Users/joe/code/artifactx` when present
 4. `arx` on `PATH`
 
-Use an explicit upstream version or the current GitHub release:
+By default the helper builds both supported architectures (`amd64 arm64`). Use an explicit upstream version or the current GitHub release:
 
 ```sh
 VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
 VERSION=latest helpers/build-recipe.sh victoriametrics
+ARCH=amd64 VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
+ARCHES="amd64 arm64" VERSION=latest helpers/build-recipe.sh victoriametrics
 ```
 
 Expected package names for version `1.146.0`:
 
 - `dist/victoriametrics/victoriametrics_1.146.0_amd64.deb`
+- `dist/victoriametrics/victoriametrics_1.146.0_arm64.deb`
 - `dist/victoriametrics/victoriametrics-1.146.0-1.x86_64.rpm`
+- `dist/victoriametrics/victoriametrics-1.146.0-1.aarch64.rpm`
 
 Expected static repository paths:
 
 - `public/apt/dists/stable/InRelease`
 - `public/apt/dists/stable/main/binary-amd64/Packages.gz`
+- `public/apt/dists/stable/main/binary-arm64/Packages.gz`
 - `public/yum/stable/x86_64/repodata/repomd.xml`
+- `public/yum/stable/aarch64/repodata/repomd.xml`
 - `public/keys/public.asc`
 
 ## Client snippets
@@ -106,6 +112,13 @@ sudo dnf install victoriametrics
 
 Package payload signing is intentionally out of scope for phase one; repository
 metadata is signed by ArtifactX.
+
+## Package split policy
+
+VictoriaMetrics has many components. This feed follows the official Docker image
+boundaries instead of publishing giant tarball-shaped packages: one runtime
+binary/service per deb/rpm package, only `amd64` and `arm64`, no cold Docker
+platforms. See `docs/packaging-strategy.md`.
 
 ## Official-source boundary
 

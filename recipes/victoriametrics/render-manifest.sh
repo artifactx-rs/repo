@@ -14,12 +14,13 @@ postrm="$script_dir/scripts/postrm.sh"
 test -x "$postinst"
 test -x "$postrm"
 
-python3 - <<'PY' "$script_dir/arx-pack.toml.in" "$MANIFEST_PATH" "$VERSION" "$BINARY_PATH" "$SERVICE_PATH" "$postinst" "$postrm"
+python3 - <<'PY' "$script_dir/arx-pack.toml.in" "$MANIFEST_PATH" "$VERSION" "$ARCH" "$BINARY_PATH" "$SERVICE_PATH" "$postinst" "$postrm"
 import pathlib, sys
-src, dest, version, binary, service, postinst, postrm = sys.argv[1:]
+src, dest, version, arch, binary, service, postinst, postrm = sys.argv[1:]
 text = pathlib.Path(src).read_text()
 replacements = {
     '@VERSION@': version,
+    '@ARCH@': arch,
     '@BINARY_PATH@': binary,
     '@SERVICE_PATH@': service,
     '@POSTINST_PATH@': postinst,

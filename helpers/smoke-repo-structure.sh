@@ -6,15 +6,30 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 . "$script_dir/lib.sh"
 root=$(repo_root)
 
+if [ -n "${ARCH:-}" ]; then
+  arch_list="$ARCH"
+else
+  arch_list="${ARCHES:-amd64 arm64}"
+fi
+
 required=(
   "$root/repo/apt/dists/stable/InRelease"
-  "$root/repo/apt/dists/stable/main/binary-amd64/Packages.gz"
-  "$root/repo/yum/stable/x86_64/repodata/repomd.xml"
   "$root/public/apt/dists/stable/InRelease"
-  "$root/public/apt/dists/stable/main/binary-amd64/Packages.gz"
-  "$root/public/yum/stable/x86_64/repodata/repomd.xml"
   "$root/public/keys/public.asc"
 )
+for arch in $arch_list; do
+  case "$arch" in
+    amd64) deb_arch=amd64; rpm_arch=x86_64 ;;
+    arm64) deb_arch=arm64; rpm_arch=aarch64 ;;
+    *) printf 'unsupported ARCH=%s; supported: amd64 arm64\n' "$arch" >&2; exit 1 ;;
+  esac
+  required+=(
+    "$root/repo/apt/dists/stable/main/binary-${deb_arch}/Packages.gz"
+    "$root/repo/yum/stable/${rpm_arch}/repodata/repomd.xml"
+    "$root/public/apt/dists/stable/main/binary-${deb_arch}/Packages.gz"
+    "$root/public/yum/stable/${rpm_arch}/repodata/repomd.xml"
+  )
+done
 for path in "${required[@]}"; do
   test -f "$path"
 done
