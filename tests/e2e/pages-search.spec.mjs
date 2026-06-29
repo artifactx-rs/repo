@@ -18,7 +18,8 @@ test.describe('Pages package search', () => {
     await expect(page.getByText('11 of 11 packages')).toBeVisible();
     await expect(page.getByText('44 package files')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'One-click repository setup' })).toBeVisible();
-    await expect(page.getByText(/curl -fsSL .*install\.sh \| sudo bash -s --/)).toBeVisible();
+    await expect(page.getByText(/curl -fsSL .*install\.sh \| sudo bash/)).toBeVisible();
+    await expect(page.locator('#setup-command')).not.toContainText('-s --');
     await expect(page.getByRole('button', { name: 'Copy one-click setup command' })).toBeVisible();
     const expectedAptInRelease = await page.evaluate(() => window.repoUrl('apt/dists/stable/InRelease'));
     const expectedSetupScript = await page.evaluate(() => window.repoUrl('install.sh'));

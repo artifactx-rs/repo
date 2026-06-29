@@ -160,7 +160,7 @@ fetch() {
 
 need_root() {
   if [ "$(id -u)" -ne 0 ]; then
-    die "run as root, for example: curl -fsSL ${REPO_BASE}/install.sh | sudo bash -s -- ${REPO_BASE}"
+    die "run as root, for example: curl -fsSL ${REPO_BASE}/install.sh | sudo bash"
   fi
 }
 
@@ -469,7 +469,7 @@ HTML = r'''<!doctype html>
     window.repoUrl = repoUrl;
 
     function renderRepositoryCommands() {
-      document.querySelector('#setup-command').textContent = `curl -fsSL ${repoBase}install.sh | sudo bash -s -- ${repoBase}`;
+      document.querySelector('#setup-command').textContent = `curl -fsSL ${repoBase}install.sh | sudo bash`;
     }
 
     function renderRepositoryLinks() {
