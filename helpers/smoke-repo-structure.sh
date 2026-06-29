@@ -17,6 +17,7 @@ required=(
   "$root/public/apt/dists/stable/InRelease"
   "$root/public/keys/public.asc"
   "$root/public/index.html"
+  "$root/public/install.sh"
   "$root/public/packages.json"
 )
 for arch in $arch_list; do

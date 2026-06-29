@@ -87,6 +87,7 @@ names are:
 Expected static repository paths:
 
 - `public/index.html` — GitHub Pages package search UI
+- `public/install.sh` — one-command client repository setup script
 - `public/packages.json` — generated search catalog from the published repo metadata
 - `public/apt/dists/stable/InRelease`
 - `public/apt/dists/stable/main/binary-amd64/Packages.gz`
@@ -95,38 +96,15 @@ Expected static repository paths:
 - `public/yum/stable/aarch64/repodata/repomd.xml`
 - `public/keys/public.asc`
 
-## Client snippets
+## Client setup
 
-The examples below use the planned GitHub Pages URL for `artifactx-rs/repo`.
-
-### apt
-
-```sh
-curl -fsSL https://artifactx-rs.github.io/repo/keys/public.asc \
-  | sudo tee /usr/share/keyrings/artifactx-packages.asc >/dev/null
-printf '%s\n' \
-  'deb [signed-by=/usr/share/keyrings/artifactx-packages.asc] https://artifactx-rs.github.io/repo/apt stable main' \
-  | sudo tee /etc/apt/sources.list.d/artifactx-packages.list
-sudo apt-get update
-sudo apt-get install victoriametrics victoriametrics-vmagent
-```
-
-### dnf/yum
-
-```ini
-[artifactx-packages]
-name=ArtifactX Packages
-baseurl=https://artifactx-rs.github.io/repo/yum/stable/$basearch
-enabled=1
-gpgcheck=0
-repo_gpgcheck=1
-gpgkey=https://artifactx-rs.github.io/repo/keys/public.asc
-```
-
-Then:
+The generated Pages UI includes the same one-click setup command. It adds the
+repository only; then use your package manager to install any package name shown
+on the page.
 
 ```sh
-sudo dnf install victoriametrics victoriametrics-vmagent
+curl -fsSL https://artifactx-rs.github.io/repo/install.sh \
+  | sudo sh -s -- https://artifactx-rs.github.io/repo/
 ```
 
 Package payload signing is intentionally out of scope for this feed; repository

@@ -17,33 +17,36 @@ test.describe('Pages package search', () => {
     await expect(page.getByRole('searchbox', { name: /search by package/i })).toBeVisible();
     await expect(page.getByText('11 of 11 packages')).toBeVisible();
     await expect(page.getByText('44 package files')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'One-click repository setup' })).toBeVisible();
+    await expect(page.getByText(/curl -fsSL .*install\.sh \| sudo sh -s --/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Copy one-click setup command' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'apt InRelease' })).toHaveAttribute('href', 'apt/dists/stable/InRelease');
+    await expect(page.getByRole('link', { name: 'one-click setup script' })).toHaveAttribute('href', 'install.sh');
     await expect(page.getByRole('link', { name: 'package catalog JSON' })).toHaveAttribute('href', 'packages.json');
     await expect(page.getByRole('heading', { name: 'victoriametrics-vmagent' })).toBeVisible();
   });
 
-  test('filters package cards and exposes install commands plus package links', async ({ page }) => {
+  test('copies the one-click setup command', async ({ page }) => {
+    await page.getByRole('button', { name: 'Copy one-click setup command' }).click();
+
+    await expect(page.getByRole('status')).toHaveText('Copied repository setup command.');
+  });
+
+  test('filters the package-name list without per-package install commands', async ({ page }) => {
     await page.getByRole('searchbox', { name: /search by package/i }).fill('vmagent');
 
     await expect(page.getByText('1 of 11 packages')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'victoriametrics-vmagent' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'victoriametrics-vmalert' })).toHaveCount(0);
-    await expect(page.getByText('sudo apt-get install victoriametrics-vmagent')).toBeVisible();
-    await expect(page.getByText('sudo dnf install victoriametrics-vmagent')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'victoriametrics-vmagent_1.146.0_amd64.deb' })).toHaveAttribute(
-      'href',
-      'apt/pool/main/victoriametrics-vmagent_1.146.0_amd64.deb',
-    );
-    await expect(page.getByRole('link', { name: 'victoriametrics-vmagent-1.146.0-1.x86_64.rpm' })).toHaveAttribute(
-      'href',
-      'yum/stable/x86_64/victoriametrics-vmagent-1.146.0-1.x86_64.rpm',
-    );
+    await expect(page.getByText('sudo apt-get install victoriametrics-vmagent')).toHaveCount(0);
+    await expect(page.getByText('sudo dnf install victoriametrics-vmagent')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'victoriametrics-vmagent_1.146.0_amd64.deb' })).toHaveCount(0);
   });
 
   test('shows an empty state for unmatched searches', async ({ page }) => {
     await page.getByRole('searchbox', { name: /search by package/i }).fill('does-not-exist');
 
     await expect(page.getByText('0 of 11 packages')).toBeVisible();
-    await expect(page.getByRole('status')).toHaveText('No packages match this search.');
+    await expect(page.locator('#results').getByRole('status')).toHaveText('No packages match this search.');
   });
 });

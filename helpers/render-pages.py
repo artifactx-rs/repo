@@ -133,65 +133,305 @@ def build_catalog(public_root: pathlib.Path) -> dict[str, Any]:
     }
 
 
+INSTALL_SH = r'''#!/bin/sh
+set -eu
+
+REPO_BASE="${1:-${REPO_BASE:-https://artifactx-rs.github.io/repo}}"
+REPO_BASE="${REPO_BASE%/}"
+
+die() {
+  printf 'artifactx repository setup: %s\n' "$*" >&2
+  exit 1
+}
+
+fetch() {
+  url=$1
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url"
+    return
+  fi
+  if command -v wget >/dev/null 2>&1; then
+    wget -qO- "$url"
+    return
+  fi
+  die "curl or wget is required"
+}
+
+need_root() {
+  if [ "$(id -u)" -ne 0 ]; then
+    die "run as root, for example: curl -fsSL ${REPO_BASE}/install.sh | sudo sh -s -- ${REPO_BASE}"
+  fi
+}
+
+setup_apt() {
+  keyring=/usr/share/keyrings/artifactx-packages.asc
+  source_list=/etc/apt/sources.list.d/artifactx-packages.list
+  mkdir -p /usr/share/keyrings /etc/apt/sources.list.d
+  fetch "${REPO_BASE}/keys/public.asc" >"$keyring"
+  chmod 0644 "$keyring"
+  printf '%s\n' "deb [signed-by=${keyring}] ${REPO_BASE}/apt stable main" >"$source_list"
+  apt-get update
+  printf 'ArtifactX apt repository configured.\n'
+}
+
+setup_rpm() {
+  pm=$1
+  repo_file=/etc/yum.repos.d/artifactx-packages.repo
+  mkdir -p /etc/yum.repos.d
+  cat >"$repo_file" <<EOF
+[artifactx-packages]
+name=ArtifactX Packages
+baseurl=${REPO_BASE}/yum/stable/\$basearch
+enabled=1
+gpgcheck=0
+repo_gpgcheck=1
+gpgkey=${REPO_BASE}/keys/public.asc
+EOF
+  "$pm" -y makecache
+  printf 'ArtifactX yum/dnf repository configured.\n'
+}
+
+need_root
+
+if command -v apt-get >/dev/null 2>&1; then
+  setup_apt
+elif command -v dnf >/dev/null 2>&1; then
+  setup_rpm dnf
+elif command -v yum >/dev/null 2>&1; then
+  setup_rpm yum
+else
+  die "no supported package manager found; expected apt-get, dnf, or yum"
+fi
+'''
+
+
 HTML = r'''<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ArtifactX Packages</title>
+  <link rel="icon" href="data:,">
   <style>
-    :root { color-scheme: light dark; --bg: #0f172a; --card: #111827; --muted: #94a3b8; --text: #e5e7eb; --accent: #38bdf8; --border: #334155; }
-    @media (prefers-color-scheme: light) { :root { --bg: #f8fafc; --card: #ffffff; --muted: #475569; --text: #0f172a; --accent: #0369a1; --border: #cbd5e1; } }
+    :root {
+      color-scheme: light dark;
+      --bg: #020617;
+      --surface: #0f172a;
+      --card: #111827;
+      --card-strong: #172033;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --heading: #f8fafc;
+      --accent: #38bdf8;
+      --accent-strong: #0ea5e9;
+      --success: #34d399;
+      --border: #334155;
+      --border-soft: rgb(148 163 184 / 0.22);
+      --shadow: 0 24px 70px rgb(2 6 23 / 0.42);
+      --code-bg: rgb(2 6 23 / 0.55);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8fafc;
+        --surface: #eef6ff;
+        --card: #ffffff;
+        --card-strong: #f8fbff;
+        --muted: #475569;
+        --text: #0f172a;
+        --heading: #020617;
+        --accent: #0369a1;
+        --accent-strong: #0284c7;
+        --success: #047857;
+        --border: #cbd5e1;
+        --border-soft: rgb(15 23 42 / 0.12);
+        --shadow: 0 24px 55px rgb(15 23 42 / 0.12);
+        --code-bg: rgb(241 245 249 / 0.92);
+      }
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; font: 16px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; background: var(--bg); color: var(--text); }
-    header { padding: 3rem 1rem 2rem; max-width: 1120px; margin: 0 auto; }
-    main { max-width: 1120px; margin: 0 auto; padding: 0 1rem 3rem; }
-    h1 { font-size: clamp(2rem, 5vw, 4rem); line-height: 1; margin: 0 0 1rem; }
-    .lede { max-width: 760px; color: var(--muted); margin: 0; }
-    .panel, .package-card { background: color-mix(in srgb, var(--card) 92%, transparent); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 20px 40px rgb(0 0 0 / 0.16); }
-    .panel { padding: 1rem; margin-bottom: 1rem; display: grid; gap: 1rem; }
-    label { font-weight: 700; display: block; margin-bottom: .4rem; }
-    input[type="search"] { width: 100%; border: 1px solid var(--border); border-radius: 14px; padding: .85rem 1rem; font: inherit; color: var(--text); background: transparent; }
-    .stats { display: flex; flex-wrap: wrap; gap: .6rem; color: var(--muted); }
-    .pill { border: 1px solid var(--border); border-radius: 999px; padding: .3rem .65rem; }
-    .quick-links { display: flex; flex-wrap: wrap; gap: .75rem; }
-    a { color: var(--accent); text-underline-offset: .2em; }
-    #results { display: grid; gap: 1rem; }
-    .package-card { padding: 1rem; }
-    .package-card h2 { margin: 0 0 .35rem; font-size: 1.25rem; }
-    .description { color: var(--muted); margin: 0 0 1rem; }
-    .install { display: grid; gap: .5rem; margin: 1rem 0; }
-    code { display: inline-block; max-width: 100%; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 10px; padding: .35rem .5rem; background: rgb(148 163 184 / 0.12); }
-    .variants { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .5rem; padding: 0; margin: 0; list-style: none; }
-    .variant { border: 1px solid var(--border); border-radius: 12px; padding: .65rem; }
-    .variant strong { display: block; }
-    .sha { color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
-    .empty { padding: 2rem; text-align: center; color: var(--muted); }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 16px/1.55 system-ui, -apple-system, Segoe UI, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgb(56 189 248 / 0.18), transparent 34rem),
+        linear-gradient(180deg, var(--surface) 0, var(--bg) 32rem);
+      color: var(--text);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: linear-gradient(rgb(148 163 184 / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(148 163 184 / 0.06) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(180deg, black, transparent 40rem);
+    }
+    a { color: var(--accent); text-underline-offset: .22em; }
+    a:hover { color: var(--accent-strong); }
+    .hero, main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; }
+    .hero { padding: 4rem 0 2rem; }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.03fr) minmax(360px, .97fr); gap: 2rem; align-items: start; }
+    .eyebrow, .section-kicker { color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1, h2, h3 { color: var(--heading); line-height: 1.12; }
+    h1 { font-size: clamp(2.55rem, 6vw, 5.2rem); letter-spacing: -.06em; margin: .65rem 0 1rem; max-width: 10ch; }
+    h2 { font-size: clamp(1.35rem, 2.5vw, 1.9rem); letter-spacing: -.025em; margin: 0; }
+    h3 { font-size: 1rem; margin: 0; }
+    .lede { max-width: 720px; color: var(--muted); font-size: 1.08rem; margin: 0; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }
+    .button, button {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .45rem;
+      font: inherit;
+      font-weight: 800;
+      min-height: 2.55rem;
+      padding: .6rem 1rem;
+      text-decoration: none;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .button:hover, button:hover { transform: translateY(-1px); }
+    .button.primary, .copy-button { background: var(--accent); color: #00111f; box-shadow: 0 12px 28px rgb(14 165 233 / 0.25); }
+    .button.secondary { background: rgb(148 163 184 / 0.12); border-color: var(--border-soft); color: var(--text); }
+    .panel, .package-list, .package-row, .setup-panel, .command-card {
+      background: color-mix(in srgb, var(--card) 94%, transparent);
+      border: 1px solid var(--border-soft);
+      box-shadow: var(--shadow);
+    }
+    .setup-panel { border-radius: 28px; padding: 1.25rem; }
+    .setup-panel > p { color: var(--muted); margin: .55rem 0 1rem; }
+    .setup-header { display: flex; justify-content: space-between; gap: 1rem; align-items: start; margin-bottom: .9rem; }
+    .setup-badge { border: 1px solid var(--border-soft); border-radius: 999px; color: var(--muted); font-size: .82rem; font-weight: 750; padding: .25rem .65rem; white-space: nowrap; }
+    .setup-grid { display: grid; gap: .85rem; }
+    .command-card { border-radius: 20px; padding: 1rem; background: color-mix(in srgb, var(--card-strong) 95%, transparent); box-shadow: none; }
+    .command-card header { display: flex; justify-content: space-between; align-items: start; gap: 1rem; margin-bottom: .75rem; }
+    .manager { color: var(--muted); font-size: .86rem; margin-top: .15rem; }
+    pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    pre {
+      margin: 0 0 .75rem;
+      overflow: auto;
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+      background: var(--code-bg);
+      max-height: 9.5rem;
+    }
+    pre code { display: block; padding: .85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    code.inline-code, .install code {
+      display: inline-block;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: .4rem .55rem;
+      background: rgb(148 163 184 / 0.12);
+    }
+    .copy-button { width: 100%; }
+    .copy-button[data-copied="true"] { background: var(--success); color: #022c22; }
+    .copy-status { color: var(--success); min-height: 1.4rem; margin: .75rem 0 0; font-size: .92rem; }
+    main { padding: 0 0 3rem; }
+    .panel { border-radius: 24px; padding: 1.15rem; margin: 1rem 0; display: grid; gap: 1rem; position: sticky; top: .75rem; z-index: 2; backdrop-filter: blur(14px); }
+    .search-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .72fr); gap: 1rem; align-items: end; }
+    label { color: var(--muted); display: block; font-size: .92rem; font-weight: 700; margin: .35rem 0 .45rem; }
+    input[type="search"] { width: 100%; border: 1px solid var(--border); border-radius: 16px; padding: .9rem 1rem; font: inherit; color: var(--text); background: rgb(148 163 184 / 0.08); outline: none; }
+    input[type="search"]:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgb(56 189 248 / 0.18); }
+    .stats, .quick-links, .package-meta { display: flex; flex-wrap: wrap; gap: .55rem; }
+    .stats { justify-content: flex-end; color: var(--muted); }
+    .pill { border: 1px solid var(--border-soft); border-radius: 999px; padding: .35rem .68rem; background: rgb(148 163 184 / 0.08); }
+    .quick-links { border-top: 1px solid var(--border-soft); padding-top: .85rem; }
+    .quick-links a { font-weight: 700; }
+    #results { display: grid; gap: .85rem; }
+    .package-list { border-radius: 24px; overflow: hidden; }
+    .package-list-head, .package-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .4rem; align-items: start; padding: .72rem 1rem; }
+    .package-list-head { background: rgb(148 163 184 / 0.10); border-bottom: 1px solid var(--border-soft); color: var(--muted); font-size: .76rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+    .package-row { border: 0; border-bottom: 1px solid var(--border-soft); box-shadow: none; }
+    .package-row:last-child { border-bottom: 0; }
+    .package-row h3 { font-size: 1rem; letter-spacing: -.015em; margin: 0; overflow-wrap: anywhere; }
+    .empty { border-radius: 22px; padding: 2.25rem; text-align: center; color: var(--muted); }
+    @media (max-width: 900px) {
+      .hero { padding-top: 2.5rem; }
+      .hero-grid, .search-head { grid-template-columns: 1fr; }
+      h1 { max-width: 12ch; }
+      .stats { justify-content: flex-start; }
+      .panel { position: static; }
+      .package-list-head { display: none; }
+      .package-row { padding: 1rem; }
+    }
+    @media (max-width: 520px) {
+      .hero, main { width: min(100% - 1rem, 1180px); }
+      .hero-actions, .setup-header, .command-card header { display: grid; }
+      .setup-panel, .panel, .package-list { border-radius: 20px; }
+      .setup-panel, .panel { padding: .9rem; }
+      .button, button { width: 100%; }
+      h1 { font-size: clamp(2.2rem, 13vw, 3.1rem); }
+      .command-card pre { display: none; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>ArtifactX Packages</h1>
-    <p class="lede">Search the generated static apt/yum package feed. This page is rebuilt from repository metadata after each scheduled package refresh.</p>
+  <header class="hero">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <div class="eyebrow">Static apt/yum feed · amd64 + arm64</div>
+        <h1>ArtifactX Packages</h1>
+        <p class="lede">Search the generated package feed, copy a repository setup command, then install VictoriaMetrics components with apt or dnf.</p>
+        <div class="hero-actions" aria-label="Primary actions">
+          <a class="button primary" href="#repo-setup">Add repository</a>
+          <a class="button secondary" href="#package-search">Search packages</a>
+        </div>
+      </div>
+      <section class="setup-panel" id="repo-setup" aria-labelledby="repo-setup-heading">
+        <div class="setup-header">
+          <div>
+            <div class="section-kicker">Repository setup</div>
+            <h2 id="repo-setup-heading">One-click repository setup</h2>
+          </div>
+          <span class="setup-badge">apt · dnf · yum</span>
+        </div>
+        <p>Run one command to add this feed. The script detects apt, dnf, or yum and configures the matching repository with the public metadata signing key.</p>
+        <div class="setup-grid">
+          <article class="command-card">
+            <header>
+              <div>
+                <h3>Auto-detect Linux package manager</h3>
+                <div class="manager">adds the repository only; install package names from the list below</div>
+              </div>
+              <span class="setup-badge">amd64 · arm64</span>
+            </header>
+            <pre><code id="setup-command">Preparing setup command…</code></pre>
+            <button type="button" class="copy-button" data-copy-target="setup-command" data-copy-label="repository">Copy one-click setup command</button>
+          </article>
+        </div>
+        <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
+      </section>
+    </div>
   </header>
   <main>
     <section class="panel" aria-labelledby="search-heading">
-      <div>
-        <h2 id="search-heading">Package search</h2>
-        <label for="package-search">Search by package, description, architecture, or format</label>
-        <input id="package-search" name="q" type="search" autocomplete="off" placeholder="Try vmagent, cluster, arm64, rpm" autofocus>
-      </div>
-      <div class="stats" aria-live="polite">
-        <span class="pill" id="summary-packages">Loading packages…</span>
-        <span class="pill" id="summary-artifacts">Loading artifacts…</span>
-        <span class="pill">suite: stable</span>
-        <span class="pill">arches: amd64, arm64</span>
+      <div class="search-head">
+        <div>
+          <h2 id="search-heading">Package search</h2>
+          <label for="package-search">Search by package, description, architecture, or format</label>
+          <input id="package-search" name="q" type="search" autocomplete="off" placeholder="Try vmagent, cluster, arm64, rpm">
+        </div>
+        <div class="stats" aria-live="polite">
+          <span class="pill" id="summary-packages">Loading packages…</span>
+          <span class="pill" id="summary-artifacts">Loading artifacts…</span>
+          <span class="pill">suite: stable</span>
+          <span class="pill">arches: amd64, arm64</span>
+        </div>
       </div>
       <nav class="quick-links" aria-label="Repository links">
         <a href="apt/dists/stable/InRelease">apt InRelease</a>
         <a href="yum/stable/x86_64/repodata/repomd.xml">yum x86_64 repomd.xml</a>
         <a href="yum/stable/aarch64/repodata/repomd.xml">yum aarch64 repomd.xml</a>
         <a href="keys/public.asc">repository public key</a>
+        <a href="install.sh">one-click setup script</a>
         <a href="packages.json">package catalog JSON</a>
       </nav>
     </section>
@@ -202,10 +442,53 @@ HTML = r'''<!doctype html>
     const search = document.querySelector('#package-search');
     const packageSummary = document.querySelector('#summary-packages');
     const artifactSummary = document.querySelector('#summary-artifacts');
+    const copyStatus = document.querySelector('#copy-status');
     let catalog = { packages: [], packageCount: 0, artifactCount: 0 };
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    }
+
+    function renderRepositoryCommands() {
+      const repoBase = new URL('.', window.location.href).href;
+      document.querySelector('#setup-command').textContent = `curl -fsSL ${repoBase}install.sh | sudo sh -s -- ${repoBase}`;
+    }
+
+    function fallbackCopy(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (!copied) throw new Error('copy command was rejected');
+    }
+
+    async function copyCommand(button) {
+      const target = document.querySelector(`#${button.dataset.copyTarget}`);
+      const label = button.dataset.copyLabel;
+      const text = target.textContent.trim();
+      try {
+        try {
+          if (!navigator.clipboard || !window.isSecureContext) throw new Error('clipboard API unavailable');
+          await navigator.clipboard.writeText(text);
+        } catch (_clipboardError) {
+          fallbackCopy(text);
+        }
+        copyStatus.textContent = `Copied ${label} setup command.`;
+        button.dataset.copied = 'true';
+        const originalText = button.textContent;
+        button.textContent = 'Copied';
+        window.setTimeout(() => {
+          button.dataset.copied = 'false';
+          button.textContent = originalText;
+        }, 1800);
+      } catch (error) {
+        copyStatus.textContent = `Copy failed: ${error.message}. Select the command manually.`;
+      }
     }
 
     function matches(pkg, query) {
@@ -220,29 +503,28 @@ HTML = r'''<!doctype html>
       packageSummary.textContent = `${filtered.length} of ${catalog.packageCount} packages`;
       artifactSummary.textContent = `${catalog.artifactCount} package files`;
       if (!filtered.length) {
-        results.innerHTML = '<div class="package-card empty" role="status">No packages match this search.</div>';
+        results.innerHTML = '<div class="package-list empty" role="status">No packages match this search.</div>';
         return;
       }
-      results.innerHTML = filtered.map(pkg => {
-        const variants = pkg.variants.map(v => `
-          <li class="variant">
-            <strong>${escapeHtml(v.manager)} ${escapeHtml(v.arch)} · ${escapeHtml(v.format)}</strong>
-            <a href="${escapeHtml(v.path)}">${escapeHtml(v.path.split('/').pop())}</a>
-            <div>${escapeHtml(v.sizeHuman)}</div>
-            <div class="sha">sha256: ${escapeHtml(v.sha256 || 'n/a')}</div>
-          </li>`).join('');
+      const rows = filtered.map(pkg => {
         return `
-          <article class="package-card">
-            <h2>${escapeHtml(pkg.name)}</h2>
-            <p class="description">${escapeHtml(pkg.description)} · version ${escapeHtml(pkg.version)}</p>
-            <div class="install" aria-label="Install commands for ${escapeHtml(pkg.name)}">
-              <code>sudo apt-get install ${escapeHtml(pkg.name)}</code>
-              <code>sudo dnf install ${escapeHtml(pkg.name)}</code>
-            </div>
-            <ul class="variants">${variants}</ul>
+          <article class="package-row" role="listitem" aria-label="${escapeHtml(pkg.name)}">
+            <h3>${escapeHtml(pkg.name)}</h3>
           </article>`;
       }).join('');
+      results.innerHTML = `
+        <div class="package-list" role="list" aria-label="Filtered packages">
+          <div class="package-list-head" aria-hidden="true">
+            <span>Package name</span>
+          </div>
+          ${rows}
+        </div>`;
     }
+
+    renderRepositoryCommands();
+    document.querySelectorAll('[data-copy-target]').forEach(button => {
+      button.addEventListener('click', () => copyCommand(button));
+    });
 
     fetch('packages.json')
       .then(response => {
@@ -260,7 +542,6 @@ HTML = r'''<!doctype html>
 </html>
 '''
 
-
 def main() -> int:
     public_root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "public").resolve()
     if not public_root.exists():
@@ -268,6 +549,9 @@ def main() -> int:
     catalog = build_catalog(public_root)
     (public_root / "packages.json").write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (public_root / "index.html").write_text(HTML, encoding="utf-8")
+    install_script = public_root / "install.sh"
+    install_script.write_text(INSTALL_SH, encoding="utf-8")
+    install_script.chmod(0o755)
     print(f"Rendered Pages search UI for {catalog['packageCount']} packages and {catalog['artifactCount']} artifacts")
     return 0
 
