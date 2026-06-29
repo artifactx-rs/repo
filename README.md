@@ -171,12 +171,19 @@ ARCHES="amd64 arm64" helpers/smoke-live-install-docker.sh victoriametrics
 
 ## CI refresh
 
-`.github/workflows/refresh.yml` runs on a schedule and manually. It builds
-ArtifactX from source, runs the recipe, checks private-key leakage, smoke-installs
-packages, runs Playwright E2E against the generated Pages search UI, uploads
-generated packages/static repo as artifacts, can deploy `public/` to GitHub
-Pages when Pages is enabled, then runs the live Docker install smoke against the
-deployed Pages URL.
+`.github/workflows/refresh.yml` runs on a schedule and manually. Scheduled runs
+first execute `helpers/check-upstream-version.sh`, which compares the latest
+upstream GitHub release with the currently deployed `packages.json`. If the
+versions already match, the workflow stops after that lightweight check and
+skips the package build, Pages deploy, and Docker smoke jobs. Manual dispatches
+always bypass the version gate and run a full refresh.
+
+When the version gate allows a refresh, CI pulls the `ghcr.io/artifactx-rs/arx`
+container, runs the recipe, checks private-key leakage, smoke-installs packages,
+runs Playwright E2E against the generated Pages search UI, uploads generated
+packages/static repo as artifacts, deploys `public/` to GitHub Pages when Pages
+is enabled, then runs the live Docker install smoke against the deployed Pages
+URL.
 
 For a client-stable public repo, configure stable signing key secrets:
 

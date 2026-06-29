@@ -36,7 +36,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_build: ${{ steps.detect.outputs.should_build }}
+      latest_version: ${{ steps.detect.outputs.latest_version }}
+      current_version: ${{ steps.detect.outputs.current_version }}
+      reason: ${{ steps.detect.outputs.reason }}
+    steps:
+      - name: Checkout package feed
+        uses: actions/checkout@v4
+
+      - name: Check upstream version
+        id: detect
+        env:
+          FORCE_BUILD: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          REPO_BASE: https://artifactx-rs.github.io/repo
+        run: helpers/check-upstream-version.sh "$RECIPE"
+
   build:
+    needs: detect-version
+    if: needs.detect-version.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     environment: package-signing
     permissions:
