@@ -80,6 +80,8 @@ names are:
 
 Expected static repository paths:
 
+- `public/index.html` — GitHub Pages package search UI
+- `public/packages.json` — generated search catalog from the published repo metadata
 - `public/apt/dists/stable/InRelease`
 - `public/apt/dists/stable/main/binary-amd64/Packages.gz`
 - `public/apt/dists/stable/main/binary-arm64/Packages.gz`
@@ -147,11 +149,26 @@ Maintainer scripts are attached only to the `victoriametrics` service package:
 they create the official runtime user/group/data directory and reload systemd
 when present. Component tool packages install only their binary payloads.
 
+
+## Pages search E2E
+
+The generated Pages UI is intentionally static: `helpers/render-pages.py` reads
+the published apt/yum tree, writes `public/packages.json`, and renders
+`public/index.html`. Run the browser test locally after a package build:
+
+```sh
+npm ci
+npm run e2e:install
+npm run e2e
+```
+
 ## CI refresh
 
 `.github/workflows/refresh.yml` runs on a schedule and manually. It builds
-ArtifactX from source, runs the recipe, uploads generated packages/static repo as
-artifacts, and can deploy `public/` to GitHub Pages when Pages is enabled.
+ArtifactX from source, runs the recipe, checks private-key leakage, smoke-installs
+packages, runs Playwright E2E against the generated Pages search UI, uploads
+generated packages/static repo as artifacts, and can deploy `public/` to GitHub
+Pages when Pages is enabled.
 
 For a client-stable public repo, configure stable signing key secrets:
 

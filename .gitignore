@@ -17,3 +17,10 @@
 
 # Local OMX runtime state
 .omx/
+# Node/Playwright local state
+/node_modules/
+/playwright-report/
+/test-results/
+__pycache__/
+*.pyc
+

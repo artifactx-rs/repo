@@ -22,9 +22,10 @@ helpers/smoke-no-private-key-leak.sh
 # Fixed-version product test for all supported architectures.
 VERSION=1.146.0 helpers/build-recipe.sh victoriametrics
 
-# Inspect generated artifact cardinality.
+# Inspect generated artifact cardinality and generated Pages assets.
 find dist/victoriametrics -type f | wc -l
 helpers/smoke-repo-structure.sh
+python3 helpers/render-pages.py public
 
 # CI default version resolver path for one architecture.
 ARCH=amd64 VERSION=latest recipes/victoriametrics/fetch.sh
@@ -34,6 +35,11 @@ helpers/smoke-repo-structure.sh
 
 # Install smoke from the generated static public tree.
 helpers/smoke-install-docker.sh victoriametrics
+
+# Browser E2E for the generated Pages search UI.
+npm ci
+npm run e2e:install
+npm run e2e
 ```
 
 ## Evidence from the current VictoriaMetrics run

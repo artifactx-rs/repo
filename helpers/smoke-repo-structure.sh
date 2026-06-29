@@ -16,6 +16,8 @@ required=(
   "$root/repo/apt/dists/stable/InRelease"
   "$root/public/apt/dists/stable/InRelease"
   "$root/public/keys/public.asc"
+  "$root/public/index.html"
+  "$root/public/packages.json"
 )
 for arch in $arch_list; do
   case "$arch" in

@@ -82,6 +82,21 @@ jobs:
         if: ${{ inputs.install_smoke != false }}
         run: helpers/smoke-install-docker.sh "$RECIPE"
 
+      - name: Set up Node for Pages E2E
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Pages E2E dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npm run e2e:install
+
+      - name: Pages search E2E
+        run: npm run e2e
+
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:

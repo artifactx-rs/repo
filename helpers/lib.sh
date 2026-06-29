@@ -81,15 +81,5 @@ export_public_tree() {
   cp -R "$root/repo/yum" "$root/public/yum"
   cp "$root/repo/keys/public.asc" "$root/public/keys/public.asc"
   touch "$root/public/.nojekyll"
-  cat > "$root/public/index.html" <<'HTML'
-<!doctype html>
-<meta charset="utf-8">
-<title>ArtifactX Packages</title>
-<h1>ArtifactX Packages</h1>
-<ul>
-  <li><a href="apt/dists/stable/InRelease">apt InRelease</a></li>
-  <li><a href="yum/stable/x86_64/repodata/repomd.xml">yum repomd.xml</a></li>
-  <li><a href="keys/public.asc">repository public key</a></li>
-</ul>
-HTML
+  python3 "$root/helpers/render-pages.py" "$root/public"
 }
