@@ -91,16 +91,15 @@ Expected static repository paths:
 
 ## Client snippets
 
-Replace the base URL with the static host that serves `public/`.
+The examples below use the planned GitHub Pages URL for `artifactx-rs/repo`.
 
 ### apt
 
 ```sh
-curl -fsSL https://packages.example.invalid/keys/public.asc \
+curl -fsSL https://artifactx-rs.github.io/repo/keys/public.asc \
   | sudo tee /usr/share/keyrings/artifactx-packages.asc >/dev/null
-printf '%s
-' \
-  'deb [signed-by=/usr/share/keyrings/artifactx-packages.asc] https://packages.example.invalid/apt stable main' \
+printf '%s\n' \
+  'deb [signed-by=/usr/share/keyrings/artifactx-packages.asc] https://artifactx-rs.github.io/repo/apt stable main' \
   | sudo tee /etc/apt/sources.list.d/artifactx-packages.list
 sudo apt-get update
 sudo apt-get install victoriametrics victoriametrics-vmagent
@@ -111,11 +110,11 @@ sudo apt-get install victoriametrics victoriametrics-vmagent
 ```ini
 [artifactx-packages]
 name=ArtifactX Packages
-baseurl=https://packages.example.invalid/yum/stable/$basearch
+baseurl=https://artifactx-rs.github.io/repo/yum/stable/$basearch
 enabled=1
 gpgcheck=0
 repo_gpgcheck=1
-gpgkey=https://packages.example.invalid/keys/public.asc
+gpgkey=https://artifactx-rs.github.io/repo/keys/public.asc
 ```
 
 Then:
