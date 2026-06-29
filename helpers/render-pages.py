@@ -15,6 +15,30 @@ DEB_TO_RPM_ARCH = {
     "arm64": "aarch64",
 }
 CANONICAL_REPO_BASE = "https://artifactx-rs.github.io/repo/"
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+PACKAGE_GROUPS: dict[str, dict[str, Any]] = {
+    "single": {
+        "label": "Single-node (vmsingle)",
+        "summary": "Standalone VictoriaMetrics server package for single-node deployments.",
+        "order": 10,
+    },
+    "cluster": {
+        "label": "Cluster components (vmcluster)",
+        "summary": "Install these roles independently for horizontally scaled vmcluster deployments.",
+        "order": 20,
+    },
+    "vmutils": {
+        "label": "Utilities",
+        "summary": "Agents, alerting, auth, migration, backup, and restore tools.",
+        "order": 30,
+    },
+    "other": {
+        "label": "Other packages",
+        "summary": "Additional packages published by this repository.",
+        "order": 90,
+    },
+}
 
 
 def parse_deb_packages(path: pathlib.Path) -> list[dict[str, str]]:
@@ -66,8 +90,35 @@ def rel(path: pathlib.Path, root: pathlib.Path) -> str:
     return path.relative_to(root).as_posix()
 
 
+def load_component_metadata() -> dict[str, dict[str, str]]:
+    metadata: dict[str, dict[str, str]] = {}
+    recipes_root = REPO_ROOT / "recipes"
+    if not recipes_root.exists():
+        return metadata
+    for components_path in sorted(recipes_root.glob("*/components.tsv")):
+        with components_path.open("r", encoding="utf-8") as handle:
+            header = handle.readline().rstrip("\n").split("\t")
+            for raw_line in handle:
+                line = raw_line.rstrip("\n")
+                if not line:
+                    continue
+                row = dict(zip(header, line.split("\t")))
+                package_name = row.get("package", "")
+                if package_name:
+                    metadata[package_name] = row
+    return metadata
+
+
+def package_group(archive: str) -> dict[str, Any]:
+    key = archive if archive in PACKAGE_GROUPS else "other"
+    group = dict(PACKAGE_GROUPS[key])
+    group["key"] = key
+    return group
+
+
 def build_catalog(public_root: pathlib.Path) -> dict[str, Any]:
     packages: dict[str, dict[str, Any]] = {}
+    component_metadata = load_component_metadata()
     apt_root = public_root / "apt" / "dists" / "stable" / "main"
 
     for packages_gz in sorted(apt_root.glob("binary-*/Packages.gz")):
@@ -77,12 +128,17 @@ def build_catalog(public_root: pathlib.Path) -> dict[str, Any]:
             version = entry["Version"]
             filename = entry["Filename"]
             description = entry.get("Description", "").split("\n", 1)[0]
+            metadata = component_metadata.get(name, {})
+            archive = metadata.get("archive", "other")
             package = packages.setdefault(
                 name,
                 {
                     "name": name,
                     "version": version,
                     "description": description,
+                    "binary": metadata.get("binary", ""),
+                    "archive": archive,
+                    "group": package_group(archive),
                     "variants": [],
                 },
             )
@@ -124,12 +180,24 @@ def build_catalog(public_root: pathlib.Path) -> dict[str, Any]:
     for package in sorted_packages:
         package["variants"].sort(key=lambda item: (item["format"], item["arch"]))
 
+    group_counts: dict[str, int] = {}
+    for package in sorted_packages:
+        group_key = package["group"]["key"]
+        group_counts[group_key] = group_counts.get(group_key, 0) + 1
+    groups = []
+    for group_key, count in group_counts.items():
+        group = package_group(group_key)
+        group["packageCount"] = count
+        groups.append(group)
+    groups.sort(key=lambda item: (item["order"], item["label"]))
+
     return {
         "schemaVersion": 1,
         "suite": "stable",
         "component": "main",
         "packageCount": len(sorted_packages),
         "artifactCount": sum(len(package["variants"]) for package in sorted_packages),
+        "groups": groups,
         "packages": sorted_packages,
     }
 
@@ -276,10 +344,11 @@ HTML = r'''<!doctype html>
     .hero { padding: 4rem 0 2rem; }
     .hero-grid { display: grid; grid-template-columns: minmax(0, 1.03fr) minmax(360px, .97fr); gap: 2rem; align-items: start; }
     .eyebrow, .section-kicker { color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    h1, h2, h3 { color: var(--heading); line-height: 1.12; }
+    h1, h2, h3, h4 { color: var(--heading); line-height: 1.12; }
     h1 { font-size: clamp(2.55rem, 6vw, 5.2rem); letter-spacing: -.06em; margin: .65rem 0 1rem; max-width: 10ch; }
     h2 { font-size: clamp(1.35rem, 2.5vw, 1.9rem); letter-spacing: -.025em; margin: 0; }
     h3 { font-size: 1rem; margin: 0; }
+    h4 { font-size: 1rem; margin: 0; }
     .lede { max-width: 720px; color: var(--muted); font-size: 1.08rem; margin: 0; }
     .hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }
     .button, button {
@@ -347,13 +416,21 @@ HTML = r'''<!doctype html>
     .pill { border: 1px solid var(--border-soft); border-radius: 999px; padding: .35rem .68rem; background: rgb(148 163 184 / 0.08); }
     .quick-links { border-top: 1px solid var(--border-soft); padding-top: .85rem; }
     .quick-links a { font-weight: 700; }
-    #results { display: grid; gap: .85rem; }
+    #results, .package-groups { display: grid; gap: 1rem; }
+    .package-group { display: grid; gap: .75rem; }
+    .package-group-heading {
+      display: grid;
+      gap: .22rem;
+      padding: .1rem .15rem 0;
+    }
+    .package-group-heading p { color: var(--muted); margin: 0; }
+    .package-group-heading h3 { font-size: 1.05rem; letter-spacing: -.01em; }
     .package-list { border-radius: 24px; overflow: hidden; }
     .package-list-head, .package-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .4rem; align-items: start; padding: .72rem 1rem; }
     .package-list-head { background: rgb(148 163 184 / 0.10); border-bottom: 1px solid var(--border-soft); color: var(--muted); font-size: .76rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
     .package-row { border: 0; border-bottom: 1px solid var(--border-soft); box-shadow: none; }
     .package-row:last-child { border-bottom: 0; }
-    .package-row h3 { font-size: 1rem; letter-spacing: -.015em; margin: 0; overflow-wrap: anywhere; }
+    .package-row h4 { font-size: 1rem; letter-spacing: -.015em; margin: 0; overflow-wrap: anywhere; }
     .empty { border-radius: 22px; padding: 2.25rem; text-align: center; color: var(--muted); }
     @media (max-width: 900px) {
       .hero { padding-top: 2.5rem; }
@@ -517,8 +594,29 @@ HTML = r'''<!doctype html>
 
     function matches(pkg, query) {
       if (!query) return true;
-      const haystack = [pkg.name, pkg.version, pkg.description, ...pkg.variants.flatMap(v => [v.format, v.manager, v.arch, v.path])].join(' ').toLowerCase();
+      const group = pkg.group || {};
+      const haystack = [
+        pkg.name,
+        pkg.version,
+        pkg.description,
+        pkg.binary,
+        pkg.archive,
+        group.key,
+        group.label,
+        group.summary,
+        ...pkg.variants.flatMap(v => [v.format, v.manager, v.arch, v.path]),
+      ].join(' ').toLowerCase();
       return haystack.includes(query.toLowerCase());
+    }
+
+    function groupPackages(packages) {
+      const groups = new Map();
+      for (const pkg of packages) {
+        const group = pkg.group || { key: 'other', label: 'Other packages', summary: 'Additional repository packages.', order: 90 };
+        if (!groups.has(group.key)) groups.set(group.key, { ...group, packages: [] });
+        groups.get(group.key).packages.push(pkg);
+      }
+      return Array.from(groups.values()).sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label));
     }
 
     function render() {
@@ -530,19 +628,26 @@ HTML = r'''<!doctype html>
         results.innerHTML = '<div class="package-list empty" role="status">No packages match this search.</div>';
         return;
       }
-      const rows = filtered.map(pkg => {
-        return `
+      const sections = groupPackages(filtered).map(group => {
+        const rows = group.packages.map(pkg => `
           <article class="package-row" role="listitem" aria-label="${escapeHtml(pkg.name)}">
-            <h3>${escapeHtml(pkg.name)}</h3>
-          </article>`;
+            <h4>${escapeHtml(pkg.name)}</h4>
+          </article>`).join('');
+        return `
+          <section class="package-group" data-package-group="${escapeHtml(group.key)}" aria-labelledby="group-${escapeHtml(group.key)}">
+            <div class="package-group-heading">
+              <h3 id="group-${escapeHtml(group.key)}">${escapeHtml(group.label)}</h3>
+              <p>${escapeHtml(group.summary)}</p>
+            </div>
+            <div class="package-list" role="list" aria-label="${escapeHtml(group.label)} packages">
+              <div class="package-list-head" aria-hidden="true">
+                <span>Package name</span>
+              </div>
+              ${rows}
+            </div>
+          </section>`;
       }).join('');
-      results.innerHTML = `
-        <div class="package-list" role="list" aria-label="Filtered packages">
-          <div class="package-list-head" aria-hidden="true">
-            <span>Package name</span>
-          </div>
-          ${rows}
-        </div>`;
+      results.innerHTML = `<div class="package-groups">${sections}</div>`;
     }
 
     renderRepositoryCommands();

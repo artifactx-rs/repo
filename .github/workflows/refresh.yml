@@ -130,3 +130,21 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  live-install-smoke:
+    needs: deploy-pages
+    if: github.ref == 'refs/heads/main' && inputs.install_smoke != false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout package feed
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for multi-arch live install smoke
+        uses: docker/setup-qemu-action@v3
+
+      - name: Docker install smoke against deployed Pages
+        env:
+          REPO_BASE: https://artifactx-rs.github.io/repo
+        run: helpers/smoke-live-install-docker.sh "$RECIPE"

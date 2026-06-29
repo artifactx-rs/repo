@@ -27,6 +27,17 @@ test.describe('Pages package search', () => {
     await expect(page.getByRole('link', { name: 'apt InRelease' })).toHaveAttribute('href', expectedAptInRelease);
     await expect(page.getByRole('link', { name: 'one-click setup script' })).toHaveAttribute('href', expectedSetupScript);
     await expect(page.getByRole('link', { name: 'package catalog JSON' })).toHaveAttribute('href', expectedCatalog);
+    await expect(page.getByRole('heading', { name: 'Single-node (vmsingle)' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cluster components (vmcluster)' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Utilities' })).toBeVisible();
+    const groupOrder = await page.locator('[data-package-group]').evaluateAll(groups => groups.map(group => group.dataset.packageGroup));
+    expect(groupOrder).toEqual([
+      'single',
+      'cluster',
+      'vmutils',
+    ]);
+    await expect(page.locator('[data-package-group="single"]').getByRole('heading', { name: /^victoriametrics$/ })).toBeVisible();
+    await expect(page.locator('[data-package-group="cluster"]').getByRole('heading', { name: 'victoriametrics-vminsert' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'victoriametrics-vmagent' })).toBeVisible();
   });
 
@@ -70,6 +81,10 @@ test.describe('Pages package search', () => {
     await page.getByRole('searchbox', { name: /search by package/i }).fill('vmagent');
 
     await expect(page.getByText('1 of 11 packages')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Utilities' })).toBeVisible();
+    await expect(page.locator('[data-package-group="single"]')).toHaveCount(0);
+    await expect(page.locator('[data-package-group="cluster"]')).toHaveCount(0);
+    await expect(page.locator('[data-package-group="vmutils"]').getByRole('heading', { name: 'victoriametrics-vmagent' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'victoriametrics-vmagent' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'victoriametrics-vmalert' })).toHaveCount(0);
     await expect(page.getByText('sudo apt-get install victoriametrics-vmagent')).toHaveCount(0);

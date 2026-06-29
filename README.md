@@ -70,9 +70,20 @@ not select the expected image variant automatically.
 
 Expected output for version `1.146.0`: 44 package files under
 `dist/victoriametrics/` (`11 packages × 2 arches × deb/rpm`). The logical package
-names are:
+names are grouped by deployment mode:
 
-- `victoriametrics`
+Single-node / vmsingle:
+
+- `victoriametrics` — standalone VictoriaMetrics server package.
+
+Cluster / vmcluster:
+
+- `victoriametrics-vminsert`
+- `victoriametrics-vmselect`
+- `victoriametrics-vmstorage`
+
+Utilities:
+
 - `victoriametrics-vmagent`
 - `victoriametrics-vmalert`
 - `victoriametrics-vmauth`
@@ -80,9 +91,6 @@ names are:
 - `victoriametrics-vmbackup`
 - `victoriametrics-vmrestore`
 - `victoriametrics-vmalert-tool`
-- `victoriametrics-vminsert`
-- `victoriametrics-vmselect`
-- `victoriametrics-vmstorage`
 
 Expected static repository paths:
 
@@ -100,7 +108,7 @@ Expected static repository paths:
 
 The generated Pages UI includes the same one-click setup command. It adds the
 repository only; then use your package manager to install any package name shown
-on the page.
+on the page. The public command intentionally stays copy-paste minimal:
 
 ```sh
 curl -fsSL https://artifactx-rs.github.io/repo/install.sh | sudo bash
@@ -115,6 +123,12 @@ VictoriaMetrics has many components. This feed follows the official Docker image
 boundaries instead of publishing giant tarball-shaped packages: one runtime
 binary/service per deb/rpm package, only `amd64` and `arm64`, no cold Docker
 platforms. See `docs/packaging-strategy.md`.
+
+Use `victoriametrics` for single-node/vmsingle. For vmcluster, install the three
+role packages (`victoriametrics-vminsert`, `victoriametrics-vmselect`,
+`victoriametrics-vmstorage`) on the hosts that run those roles. A cluster
+metapackage is intentionally not published yet because topology, dependencies,
+and service management are deployment-specific.
 
 ## Official-source boundary
 
@@ -144,13 +158,25 @@ npm run e2e:install
 npm run e2e
 ```
 
+To verify the currently deployed GitHub Pages repository from fresh containers,
+run the live Docker install smoke. It curls the public `install.sh`, configures
+the online apt/yum repo, installs every logical package, and checks the installed
+binaries:
+
+```sh
+helpers/smoke-live-install-docker.sh victoriametrics
+ARCH=amd64 helpers/smoke-live-install-docker.sh victoriametrics
+ARCHES="amd64 arm64" helpers/smoke-live-install-docker.sh victoriametrics
+```
+
 ## CI refresh
 
 `.github/workflows/refresh.yml` runs on a schedule and manually. It builds
 ArtifactX from source, runs the recipe, checks private-key leakage, smoke-installs
 packages, runs Playwright E2E against the generated Pages search UI, uploads
-generated packages/static repo as artifacts, and can deploy `public/` to GitHub
-Pages when Pages is enabled.
+generated packages/static repo as artifacts, can deploy `public/` to GitHub
+Pages when Pages is enabled, then runs the live Docker install smoke against the
+deployed Pages URL.
 
 For a client-stable public repo, configure stable signing key secrets:
 
