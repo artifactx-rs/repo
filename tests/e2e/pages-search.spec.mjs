@@ -7,7 +7,7 @@ test.describe('Pages package search', () => {
       if (message.type() === 'error') consoleErrors.push(message.text());
     });
     page.on('pageerror', error => consoleErrors.push(error.message));
-    await page.goto('/');
+    await page.goto('./');
     await expect(page.getByRole('heading', { name: 'ArtifactX Packages', level: 1 })).toBeVisible();
     test.info().annotations.push({ type: 'consoleErrors', description: consoleErrors.join('\n') });
     expect(consoleErrors).toEqual([]);
